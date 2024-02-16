@@ -2,7 +2,7 @@ const version = 1;
 const cacheName = `YourNameHere-${version}`;
 const staticFiles = [];
 
-self.addEventListener('install', (ev) => {
+self.addEventListener("install", (ev) => {
   caches.open(cacheName).then((cache) => {
     //if you have an array of files then addAll() here
     ev.waitUntil(
@@ -12,7 +12,7 @@ self.addEventListener('install', (ev) => {
     );
   });
 });
-self.addEventListener('activate', (ev) => {
+self.addEventListener("activate", (ev) => {
   //delete old version
   ev.waitUntil(
     caches.keys().then((keys) => {
@@ -20,8 +20,9 @@ self.addEventListener('activate', (ev) => {
     })
   );
 });
-self.addEventListener('fetch', (ev) => {
+self.addEventListener("fetch", (ev) => {
   //try the cache first, then fetch and save copy in cache
+  ev.respondWith(cacheFirstAndSave(ev));
 });
 
 function cacheFirst(ev) {
@@ -32,6 +33,28 @@ function cacheFirst(ev) {
 }
 function cacheFirstAndSave(ev) {
   //try cache then fetch
+  return caches.match(ev.request).then((cacheResponse) => {
+    return (
+      cacheResponse ||
+      fetch(ev.request)
+        .then((fetchResp) => {
+          if (fetchResp.status > 0 && !fetchResp.ok)
+            throw new Error("failed to fetch");
+
+          return caches
+            .open(cacheName)
+            .then((cache) => {
+              return cache.put(ev.request, fetchResp.clone());
+            })
+            .then(() => {
+              return fetchResp; // actually gets returned from the cacheFirstSave()
+            });
+        })
+        .catch((err) => {
+          return response404();
+        })
+    );
+  });
 }
 function response404() {
   //any generic 404 error that we want to generate
